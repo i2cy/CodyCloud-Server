@@ -419,7 +419,7 @@ def bin2str(data): # transform bin data to string
 
 
 
-def codycloud_clientHandler(host): # CodyCloud Client Handler (sub thread)
+def codycloud_clientHandler(host): # CodyCloud Client Handler (sub_thread)
 	clt = host[0]
 	con = host[1]
 	clt.settimeout(15)
