@@ -1,0 +1,15 @@
+{
+  "ngrok_servers":{
+    "ngrokd_example":{
+      "domain":"",
+      "http_port":"8080",
+      "tunnel_addr":"4440",
+      "log_path":"logs/ngrokd/ebian/ngrokd.log",
+      "log_level":"ERROR"
+    }
+  },
+  "codycloud_server_port":2220,
+  "max_con":10,
+  "log_level":"INFO",
+  "socket_key":"EXAMPLE"
+}
