@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Name: CodyCloud Ngrok Server
 # Author: Icy(enderman1024@foxmail.com)
+# OS: Linux
 
 import time, socket, threading, os, sys, json
 
@@ -10,7 +11,7 @@ import time, socket, threading, os, sys, json
 
 def init():
 	global LOGGER, KEY, STOP
-	paths = ("./bin","./cache","./configs","./logs")
+	paths = ("./bin/","./cache/","./configs/","./logs/")
 	for i in paths:
 		path_fixer(i)
 	try:
@@ -28,7 +29,7 @@ def init():
 	LOGGER.DEBUG("[Main] Cache clear: OK")
 	KEY = b"CODYCLOUDORIGINALBASEKEY"
 	if "socket_key" in configs:
-		KEY = configs["socket_key"].encode("utf-8")
+		KEY = configs["base_key"].encode("utf-8")
 	LOGGER.DEBUG("[Main] Configs load: OK")
 	# global tags
 	STOP = False
@@ -55,6 +56,7 @@ class iccode: # Simple Data encoder/decoder
 	def __init__(self,key):
 		if len(key) < 1:
 			assert 0,"Key's length must be greater than 0"
+		key = str(key)
 		self.origin_key = key
 		self.key = []
 		keys = ""
@@ -419,24 +421,24 @@ def bin2str(data): # transform bin data to string
 
 
 
-def codycloud_clientHandler(host): # CodyCloud Client Handler (sub_thread)
-	clt = host[0]
-	con = host[1]
+def codycloud_clientHandler(clt,con): # CodyCloud Client Handler (sub thread)
 	clt.settimeout(15)
-	LOGGER.INFO("[CCClientHandler] Connection " + str(con[0]) + "?" + str(con[1]) + " handled")
-	LOGGER.DEBUG("[CCClientHandler] Waitting to match coming key")
+	LOGGER.INFO("[CCClientHandler] Connection " + str(con[0]) + ":" + str(con[1]) + " handled")
 	try:
-		data = clt.recv(1024)
+		LOGGER.DEBUG("[CCClientHandler] Waitting to match coming key")
+		data = clt.recv(128)
+		LOGGER.DEBUG("[CCClientHandler] Data received: " + bin2str(data))
 	except Exception as err:
 		LOGGER.ERROR("[CCClientHandler] Error while waitting for respons: " + str(err))
 	coder = iccode(KEY)
+	LOGGER.DEBUG("[CCClientHandler] Coder initialized, key: " + str((coder.debug())[1]))
 	key = coder.decode(data)
 	coder.reset()
 	res = keymatch(key)
 	if res:
 		LOGGER.DEBUG("[CCClientHandler] Live key matched, sending feedback")
 	else:
-		LOGGER.WARNING("[CCClientHandler] Live key match failed, data received: " + bin2str(data) + ". Closing connection.")
+		LOGGER.WARNING("[CCClientHandler] Live key match failed, data received: " + bin2str(data) + "(" + str(con[0]) + ":" + str(con[1]) + "). Closing connection.")
 		clt.close()
 		return
 	try:
@@ -454,18 +456,22 @@ def codycloud_clientHandler(host): # CodyCloud Client Handler (sub_thread)
 		return
 	coder.reset()
 	data = coder.decode(data)
-	data = int(data)
-	if not data in range(65536):
+	try:
+		data = int(data)
+	except:
+		pass
+	if data in range(65536):
+		pass
+	else:
 		LOGGER.WARNING("[CCClientHandler] Unexpected data: " + bin2str(data) + ". Closing connection")
 		clt.close()
 		return
-	else:
-		LOGGER.INFO("[CCClientHandler] Request received: port " + str(data))
+	LOGGER.INFO("[CCClientHandler] Request received: port " + str(data))
 	socket = isock()
 	socket.settimeout(5)
-	LOGGET.DEBUG("[CCClientHandler] Testing port " + str(data))
+	LOGGER.DEBUG("[CCClientHandler] Testing port " + str(data))
 	res = socket.connect(("localhost",data))
-	if res:
+	if res[0]:
 		LOGGER.DEBUG("[CCClientHandler] Port " + str(data) + " is OPEN, sending feedback")
 		socket.close()
 		coder.reset()
@@ -511,7 +517,7 @@ def codycloud_socketServer(): # codycloud server (thread)
 	srv = isock()
 	temp = srv.build_server(("0.0.0.0",port),max_con)
 	if not temp[0]:
-		LOGGER.ERROR("[CodyCloudServer] Error while starting codycloud server, result: " + str(err))
+		LOGGER.ERROR("[CodyCloudServer] Error while starting codycloud server, result: " + temp[1])
 	else:
 		LOGGER.INFO("[CodyCloudServer] CodyCloud is now listening on 0.0.0.0:" + str(port) + " with max connection number of " + str(max_con))
 	error = 0
@@ -540,7 +546,7 @@ def codycloud_socketServer(): # codycloud server (thread)
 			LOGGER.INFO("[CodyCloudServer] CodyCloud server stopped")
 			CODYCLOUD_SERVER = False
 			return
-		handler_thread = threading.Thread(target=codycloud_clientHandler,args=(host))
+		handler_thread = threading.Thread(target=codycloud_clientHandler,args=host)
 		try:
 			handler_thread.start()
 		except Exception as err:
@@ -577,8 +583,10 @@ def stop_service(): # stopping service (main)
 				if temp >= 120:
 					if NGROK_SERVICE:
 						LOGGER.WARNING("[StopService] Ngrok Service thread has no response, stopping failed")
+						break
 					if CODYCLOUD_SERVER:
 						LOGGER.WARNING("[StopService] CodyCloud Server thread has no response, stopping failed")
+						break
 				else:
 					if NGROK_SERVICE == False and CODYCLOUD_SERVER == False:
 						LOGGER.INFO("[StopService] All main threads stopped")
