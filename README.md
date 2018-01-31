@@ -6,7 +6,7 @@ It is build for a better managing of NGROK_Server
 * nohup python3 main.py &
 
 ## Config File Example (configs/codycloud.json)
-'''
+''' json
 {;
   "ngrok_servers":{;
     "ngrokd_ebian":{;
