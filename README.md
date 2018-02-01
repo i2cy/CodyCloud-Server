@@ -16,7 +16,7 @@ It is build for a better managing of NGROK_Server
 >{  
 >  "ngrok_servers": {  
 >    "ngrokd_ebian": {  
->      "domain": "codos.club",  
+>      "domain": "example.com",  
 >      "http_port": "8080",  
 >      "tunnel_addr": "4440",  
 >      "log_path": "logs/ngrokd/ebian/ngrokd.log",  
@@ -26,11 +26,11 @@ It is build for a better managing of NGROK_Server
 >  "codycloud_server_port": 2220,  
 >  "max_con": 10,  
 >  "log_level": "DEBUG",  
->  "base_key": "CodyCloudBasicLiveKey"  
+>  "base_key": "BasicLiveKey"  
 >}  
 
 ## How to stop this service
 - Create a file named **"CMD_STOP"** in the **"cache"** folder
 - If the service stopped, there should be a file named **"FB_STOPPED"** in the **"cache"** folder
 - or like this if you just used the "setup.py" installer  
-    service codycloud start
+    service codycloud stop
