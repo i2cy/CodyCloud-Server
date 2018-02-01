@@ -2,8 +2,13 @@
 It is build for a better managing of NGROK_Server
 
 ## Usage Examples:
-* python3 main.py &
-* nohup python3 main.py &
+* python3 main.py &  
+* nohup python3 main.py &  
+(or like this if you just used the "setup.py" installer)  
+* service codycloud start  
+
+## How to Setup
+- run "setup.py" file as root user acount and follow the step
 
 ## Config File Example (configs/codycloud.json)
 >{  
@@ -25,3 +30,5 @@ It is build for a better managing of NGROK_Server
 ## How to stop this service
 - Create a file named **"CMD_STOP"** in the **"cache"** folder
 - If the service stopped, there should be a file named **"FB_STOPPED"** in the **"cache"** folder
+- or like this if you just used the "setup.py" installer  
+    service codycloud start
