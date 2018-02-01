@@ -24,12 +24,14 @@ def init():
 		log_level = configs["log_level"]
 	LOGGER = logger("./logs/codycloud.log","crlf","%Y-%m-%d %H:%M:%S",log_level)
 	LOGGER.INFO("[Main] Initilizing...")
+	os.chdir(sys.path[0])
 	LOGGER.DEBUG("[Main] Path check: OK")
 	os.system("rm cache/*")
 	LOGGER.DEBUG("[Main] Cache clear: OK")
 	KEY = b"CODYCLOUDORIGINALBASEKEY"
-	if "socket_key" in configs:
+	if "base_key" in configs:
 		KEY = configs["base_key"].encode("utf-8")
+	LOGGER.DEBUG("[Main] Loaded base_key is " + KEY.decode())
 	LOGGER.DEBUG("[Main] Configs load: OK")
 	# global tags
 	STOP = False
@@ -141,10 +143,6 @@ class iccode: # Simple Data encoder/decoder
 		self.key = self.origin_ickey
 		self.walk = 0
 	def debug(self):
-		print("Original   key: " + str(self.origin_key))
-		print("Original ickey: " + str(self.origin_ickey))
-		print("Step     ickey: " + str(self.key))
-		print("Walk    cursor: " + str(self.walk))
 		return (self.origin_key,self.origin_ickey,self.key,self.walk)
 
 
@@ -187,6 +185,8 @@ class logger: # Logger
 		if self.level > 0:
 			return
 		infos = "["+ time.strftime(self.date_format) +"] [DBUG] " + msg + self.line_end
+		sys.stdout.write(infos)
+		sys.stdout.flush()
 		log_file = open(self.filename,"a")
 		log_file.write(infos)
 		log_file.close()
@@ -194,6 +194,8 @@ class logger: # Logger
 		if self.level > 1:
 			return
 		infos = "["+ time.strftime(self.date_format) +"] [INFO] " + msg + self.line_end
+		sys.stdout.write(infos)
+		sys.stdout.flush()
 		log_file = open(self.filename,"a")
 		log_file.write(infos)
 		log_file.close()
@@ -201,6 +203,8 @@ class logger: # Logger
 		if self.level > 2:
 			return
 		infos = "["+ time.strftime(self.date_format) +"] [WARN] " + msg + self.line_end
+		sys.stdout.write(infos)
+		sys.stdout.flush()
 		log_file = open(self.filename,"a")
 		log_file.write(infos)
 		log_file.close()
@@ -208,11 +212,15 @@ class logger: # Logger
 		if self.level > 3:
 			return
 		infos = "["+ time.strftime(self.date_format) +"] [EROR] " + msg + self.line_end
+		sys.stdout.write(infos)
+		sys.stdout.flush()
 		log_file = open(self.filename,"a")
 		log_file.write(infos)
 		log_file.close()
 	def CRITICAL(self,msg):
 		infos = "["+ time.strftime(self.date_format) +"] [CRIT] " + msg + self.line_end
+		sys.stdout.write(infos)
+		sys.stdout.flush()
 		log_file = open(self.filename,"a")
 		log_file.write(infos)
 		log_file.close()
@@ -354,14 +362,13 @@ def run_ngrokd(path,config): # run ngrok server file (sub thread)
 
 
 def ngrokd_server(): # ngrok control server loop (thread)
-	global NGROK_SERVICE
+	global NGROK_SERVICE, STOP
 	NGROK_SERVICE = True
 	LOGGER.DEBUG("[NgrokService] Loading configs")
 	try:
 		configs = read_config("./configs/codycloud.json")
 	except Exception as err:
 		LOGGER.CRITICAL("[NgrokService] Can't open(or missing) \"codycloud.json\" config file")
-		global STOP
 		STOP = True
 		sys.exit(1)
 	ngrok_configs = configs["ngrok_servers"]
@@ -401,7 +408,7 @@ def ngrokd_server(): # ngrok control server loop (thread)
 					LOGGER.DEBUG("[NgrokService] Ngrok server \"" + i[0] + "\" : OK")
 					test.close()
 				else:
-					LOGGER.WARNING("[NgrokService] Ngrok server \"" + i[0] + "\" : No response")
+					LOGGER.WARNING("[NgrokService] Ngrok server \"" + i[0] + "\" : NO RESPONSE")
 					LOGGER.INFO("[NgrokService] Restarting " + i[0])
 					temp = ngrok_configs[i[0]]
 					ngrokd_thread = threading.Thread(target=run_ngrokd,args=(i[0],temp))
@@ -498,14 +505,13 @@ def codycloud_clientHandler(clt,con): # CodyCloud Client Handler (sub thread)
 
 
 def codycloud_socketServer(): # codycloud server (thread)
-	global CODYCLOUD_SERVER
+	global CODYCLOUD_SERVER, STOP
 	CODYCLOUD_SERVER = True
 	LOGGER.DEBUG("[CodyCloudServer] Loading configs")
 	try:
 		configs = read_config("./configs/codycloud.json")
 	except Exception as err:
 		LOGGER.CRITICAL("[CodyCloudServer] Can't open(or missing) \"codycloud.json\" config file")
-		global STOP
 		STOP = True
 		sys.exit(1)
 	max_con = 10
@@ -526,7 +532,6 @@ def codycloud_socketServer(): # codycloud server (thread)
 		if not host[0]:
 			if error >= 10:
 				LOGGER.CRITICAL("[CodyCloudServer] Too many errors, exitting")
-				global STOP
 				STOP = True
 				return
 			LOGGER.ERROR("[CodyCloudServer] Socket server error: " + host[1])
@@ -560,43 +565,75 @@ def stop_service(): # stopping service (main)
 	global STOP
 	LOGGER.INFO("[StopService] Stopping Service is now listening for stopping signal")
 	try:
-		configs = read_config()
+		configs = read_config("./configs/codycloud.json")
 	except:
 		configs = {}
-	while True:
-		time.sleep(2)
-		signal = os.path.exists("cache/CMD_STOP")
-		if signal or STOP:
-			STOP = True
-			LOGGER.INFO("[StopService] Stopping signal detected, stopping CodyCloud")
-			socket = isock()
-			port = 2220
-			if "codycloud_server_port" in configs:
-				port = configs["codycloud_server_port"]
-			socket.settimeout(5)
-			socket.connect(("localhost",port))
-			socket.close()
-			temp = 0
-			while True:
-				time.sleep(1)
-				temp += 1
-				if temp >= 120:
-					if NGROK_SERVICE:
-						LOGGER.WARNING("[StopService] Ngrok Service thread has no response, stopping failed")
-						break
-					if CODYCLOUD_SERVER:
-						LOGGER.WARNING("[StopService] CodyCloud Server thread has no response, stopping failed")
-						break
-				else:
-					if NGROK_SERVICE == False and CODYCLOUD_SERVER == False:
-						LOGGER.INFO("[StopService] All main threads stopped")
-						break
-			LOGGER.DEBUG("[StopService] Releasing Stopped signal file")
-			file = open("cache/FB_STOPPED","w")
-			file.write("stopped")
-			file.close()
-			LOGGER.INFO("[StopService] CodyCloud stopped")
-			return
+	try:
+		while True:
+			time.sleep(2)
+			signal = os.path.exists("cache/CMD_STOP")
+			if signal or STOP:
+				STOP = True
+				LOGGER.INFO("[StopService] Stopping signal detected, stopping CodyCloud")
+				socket = isock()
+				port = 2220
+				if "codycloud_server_port" in configs:
+					port = configs["codycloud_server_port"]
+				socket.settimeout(5)
+				socket.connect(("localhost",port))
+				socket.close()
+				temp = 0
+				while True:
+					time.sleep(1)
+					temp += 1
+					if temp >= 120:
+						if NGROK_SERVICE:
+							LOGGER.WARNING("[StopService] Ngrok Service thread has no response, stopping failed")
+							break
+						if CODYCLOUD_SERVER:
+							LOGGER.WARNING("[StopService] CodyCloud Server thread has no response, stopping failed")
+							break
+					else:
+						if NGROK_SERVICE == False and CODYCLOUD_SERVER == False:
+							LOGGER.INFO("[StopService] All main threads stopped")
+							break
+				LOGGER.DEBUG("[StopService] Releasing Stopped signal file")
+				file = open("cache/FB_STOPPED","w")
+				file.write("stopped")
+				file.close()
+				LOGGER.INFO("[StopService] CodyCloud stopped")
+				return
+	except KeyboardInterrupt:
+		STOP = True
+		LOGGER.INFO("[StopService] Stopping signal detected, stopping CodyCloud")
+		socket = isock()
+		port = 2220
+		if "codycloud_server_port" in configs:
+			port = configs["codycloud_server_port"]
+		socket.settimeout(5)
+		socket.connect(("localhost",port))
+		socket.close()
+		temp = 0
+		while True:
+			time.sleep(1)
+			temp += 1
+			if temp >= 120:
+				if NGROK_SERVICE:
+					LOGGER.WARNING("[StopService] Ngrok Service thread has no response, stopping failed")
+					break
+				if CODYCLOUD_SERVER:
+					LOGGER.WARNING("[StopService] CodyCloud Server thread has no response, stopping failed")
+					break
+			else:
+				if NGROK_SERVICE == False and CODYCLOUD_SERVER == False:
+					LOGGER.INFO("[StopService] All main threads stopped")
+					break
+		LOGGER.DEBUG("[StopService] Releasing Stopped signal file")
+		file = open("cache/FB_STOPPED","w")
+		file.write("stopped")
+		file.close()
+		LOGGER.INFO("[StopService] CodyCloud stopped")
+		return
 
 
 
